@@ -306,8 +306,7 @@ HashTable<K,V,Prober,Hash,KEqual>::HashTable(
 {
     // Initialize any other data members as necessary
     //table_ = new std::vector<HashItem*>;
-
-
+    tableSize = 0;
     table_.resize(CAPACITIES[mIndex_], nullptr);
 
 
@@ -357,6 +356,12 @@ size_t HashTable<K,V,Prober,Hash,KEqual>::size() const
 template<typename K, typename V, typename Prober, typename Hash, typename KEqual>
 void HashTable<K,V,Prober,Hash,KEqual>::insert(const ItemType& p)
 {
+    double loadingFactor = static_cast<double>(tableSize)/table_.size(); //***CHANGED from size() to size()-1
+
+    if(loadingFactor > this->resizeAlpha){
+      resize();
+    }
+
 
     HASH_INDEX_T hashVal = hash_(p.first);
     HASH_INDEX_T index = probe(p.first);
@@ -369,27 +374,18 @@ void HashTable<K,V,Prober,Hash,KEqual>::insert(const ItemType& p)
 
     //need to probe c
     //find empty slot or a slot with same key
-    if(table_[index] != nullptr && kequal_(table_[index]->item.first, p.first)){
-        table_[index]->item.second = p.second;  //no get value?
-    }else{
+    if(table_[index]==nullptr){
+        tableSize++;
         table_[index] = new HashItem(p);
-        this->m_++; //just added this april 23 12:59pm
+        return;
+    }else if(this->kequal_(table_[index]->item.first, p.first)){
+        table_[index]->item = p;
+        return;
     }
 
     //std::cout <<"going into loading factor: "<<table_.size()<<" and count: "<<size()-1<<std::endl;
 
 
-    double loadingFactor = static_cast<double>(size()-1)/table_.size(); //***CHANGED from size() to size()-1
-    // std::cout<<"loadingfactor: "<<loadingFactor<<std::endl;
-    // std::cout<<"resize: "<<resizeAlpha<<std::endl;
-
-    if(loadingFactor > this->resizeAlpha){
-//std::cout <<std::endl;
-     // std::cout <<"before resizing: "<<table_.size()<<std::endl;
-      resize();
-    }
-
-    
 
 }
 
@@ -399,13 +395,19 @@ void HashTable<K,V,Prober,Hash,KEqual>::remove(const KeyType& key)
 {
 
     HASH_INDEX_T index = probe(key);
-    if(table_[index]!=nullptr && kequal_(table_[index]->item.first, key)){
-        table_[index]->deleted = true;
-
-        // delete table_[index]; //just added april 22
-        // table_[index] = nullptr;
+    if(index == Prober::npos){
+      return;
     }
-    // bool found = true;
+
+
+    if(table_[index]==nullptr){
+        return;
+    }else{
+      table_[index]->deleted = true;
+      tableSize--;
+      this->m_--; //needs to be tableSize?
+      return;
+    }
 
     // HASH_INDEX_T index = Prober{}.probe(key);
 
